@@ -1,0 +1,79 @@
+param pi := 4*atan(1);
+
+param K_s  := 1;	/*size of the convex body*/
+param m := 100;
+
+param B_s  := 1*m/2; 	/*size of the big box*/
+param n := 8*B_s;
+
+param dx   := B_s/n;	
+param dxi  := K_s/m;
+
+set Xs  = setof {i in -n..n} i*dx;
+set Xis = setof {i in -m..m} i*dxi;
+
+set B = setof {x in Xs} x;
+set K = setof {xi in Xis} xi;
+
+var f_hat{K};
+var f{B} >= 0;
+var H{B};
+var phi{x in B: abs(x)<=1};
+
+
+minimize gamma1: f_hat[0];
+
+
+subject to fhat_zero_def:
+		f_hat[0] = sum{x in B} f[x] * dx;
+
+subject to f_zero_geq_one: 
+		f[0] >= 1;
+
+subject to f_hat_boundry_zero: 
+		f_hat[-m*dxi]+ f_hat[m*dxi] = 0;
+
+#subject to sym{xi in K}: 
+#		f_hat[xi] = f_hat[-xi];
+
+subject to f_def{x in B}: 	
+		f[x] = sum{xi in K} f_hat[xi] * cos(2*pi*x*xi) * dxi;
+
+#subject to H_def{x in B}:
+#		H[x] = sum{xi in K:xi !=0} f_hat[xi] * cos(2*pi*x*xi) * dxi;
+
+#subject to phi_def{x in B: abs(x)<=1}:
+#		phi[x] = 1+ (1+2*pi* abs(x) - exp(2*pi*abs(x)));
+#subject to envelope{x in B: abs(x)<=1}:
+#		f[x] >= phi[x];
+
+solve;
+
+
+for {xi in Xis} {
+	printf: "%8.5f ", f_hat[xi] > fh.txt;
+	printf "\n" > fh.txt;
+}
+for {xi in Xis} {
+	printf: "%8.5f ", xi > xi.txt;
+	printf "\n" > xi.txt;
+}
+
+for {x in Xs} {
+	printf: "%8.5f ", f[x] > f.txt;
+	printf "\n" > f.txt;
+}
+for {x in Xs} {
+	printf: "%8.5f ", x > x.txt;
+	printf "\n" > x.txt;
+}
+
+# Enveloe
+for {x in B: abs(x)<=1} {
+	printf: "%8.5f ", phi[x] > phi.txt;
+	printf "\n" > phi.txt;
+}
+for {x in B: abs(x)<=1} {
+	printf: "%8.5f ", x > x_phi.txt;
+	printf "\n" > x_phi.txt;
+}

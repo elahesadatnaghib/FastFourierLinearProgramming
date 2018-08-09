@@ -1,0 +1,114 @@
+param pi := 4*atan(1);
+
+param N := 2;		/* Geometrical dimension */
+
+param C_s := 5; 	/* size of the truncated frequency space in positive orthant*/
+
+param m := 50;		/* number of pixels in frequency space in positive orthant*/
+
+param B_s := m/(2*C_s);/* size of the truncated time space in positive orthant*/
+
+param K_s  := 1;	/* size of the convex body in positive orthant*/	
+
+param n := m;  	/* C_s >= 1 otherwise sampling in time domain will be on integers */
+
+param dx   := B_s/n;	
+param dxi  := C_s/m;
+
+param x_pix  := dx*dx;
+param xi_pix := dxi*dxi;set Xs  := setof {k in 0..n} k*dx;
+set Xis := setof {j in 0..m} j*dxi;set B 			:= setof {x1 in Xs, x2 in Xs} (x1,x2);		/* truncated time space */
+set B_extrm_at_least_1  := setof {(x1,x2) in B: x1 = 0 || x2 = 0 || x1 = B_s || x2 = B_s} (x1,x2);
+set B_extrm_at_least_2  := setof {(x1,x2) in B: x1+x2 = 0 || x1+x2 = 2*B_s || (x1 = 0 && x2 = B_s) || (x1 = B_s && x2 = 0)} (x1,x2);
+
+set C 			:= setof {xi1 in Xis, xi2 in Xis} (xi1,xi2);		/* truncated frequency space */
+
+set C1B1		:= setof {x in Xs, xi in Xis} (x,xi); /* intermediate space, for fast fourier transform variable */
+
+
+#set K          := setof {(xi1,xi2) in C: max(xi1,xi2) <= K_s} (xi1,xi2);  /* K is l infinity ball */ 
+#set K_boundary := setof {(xi1,xi2) in C: max(xi1,xi2)  = K_s} (xi1,xi2); 
+#param K_vol    := 2*K_s*2*K_s;        
+
+#set K 		 := setof {(xi1,xi2) in C: xi1 + xi2 <= K_s} (xi1,xi2); /* K is l1 ball */ 
+#set K_boundary  := setof {(xi1,xi2) in C: xi1 + xi2  = K_s} (xi1,xi2);
+#param K_vol     := K_s*K_s * (4/2);
+
+set K 		 := setof {(xi1,xi2) in C: xi1*xi1 + xi2*xi2 <= K_s*K_s} (xi1,xi2); /* K is l2 ball */
+set K_boundary   := setof {(xi1,xi2) in C: xi1*xi1 + xi2*xi2  = K_s*K_s} (xi1,xi2);
+param K_vol      := pi * K_s * K_s;
+
+#set K 		 := setof {(xi1,xi2) in C: xi1*xi1*xi1 + xi2*xi2*xi2 <= K_s*K_s*K_s} (xi1,xi2); /* K is l3 ball */
+#set K_boundary  := setof {(xi1,xi2) in C: xi1*xi1*xi1 + xi2*xi2*xi2  = K_s*K_s*K_s} (xi1,xi2);
+#param K_vol     := 3.533277500570899914627378999296877405143737076405115060253;
+
+var f {B} >= 0;
+var g11 {C1B1};
+var fh {C};
+minimize delta2:
+		  4 * sum {(x1, x2) in B}         	    f[x1,x2]* x_pix
+		- 2 * sum {(x1,x2) in B_extrm_at_least_1} f[x1,x2]* x_pix
+		- 1 * sum {(x1,x2) in B_extrm_at_least_2} f[x1,x2]* x_pix;
+
+
+subject to f_zero_geq_one: 
+		f[0,0] >= 1;
+
+subject to f_positive {(x1,x2) in B}: 
+		f[x1,x2] >= 0;
+
+subject to out_of_K_non_pos {(xi1, xi2) in C: (xi1,xi2) not in K}: 
+		fh[xi1,xi2] <= 0;
+subject to g11_def {(x1,xi2) in C1B1}:
+               g11[x1,xi2] = 2*sum {xi1 in Xis} 			  fh[xi1,xi2]*cos(2*pi*x1*xi1) *dxi 
+			     - sum{xi1 in Xis: xi1 = C_s || xi1 = 0} fh[xi1,xi2]*cos(2*pi*x1*xi1) *dxi;
+subject to f_def {(x1,x2) in B}:
+           	f[x1,x2]  = 2*sum {xi2 in Xis}  			  g11[x1, xi2]*cos(2*pi*x2*xi2)*dxi 
+			   - sum{xi2 in Xis: xi2 = C_s || xi2 = 0} g11[x1, xi2]*cos(2*pi*x2*xi2)*dxi;/* extra valid constraints */
+#subject to fh_zero_on_k_boundary {(xi1, xi2) in C: (xi1,xi2) in K_boundary}:
+#	     	fh[xi1,xi2] = 0;
+
+#subject to diagonal_symmetry_f {(x1,x2) in B}:
+#		f[x1,x2] = f[x2,x1];
+
+#subject to diagonal_symmetry_fh {(xi1,xi2) in C}:
+#		fh[xi1,xi2] = fh[xi2,xi1];
+
+/* initialized variables by Turan’s conjecture */
+let {(x1,x2) in B: x1 != 0 && x2 != 0} f[x1,x2] := sin(pi*x1)*sin(pi*x1)/(pi*x1*pi*x1) * sin(pi*x2)*sin(pi*x2)/(pi*x2*pi*x2);   
+let {(x1,x2) in B: x1 != 0 && x2 = 0}  f[x1,x2] := sin(pi*x1)*sin(pi*x1)/(pi*x1*pi*x1);
+let {(x1,x2) in B: x1 = 0 && x2 != 0}  f[x1,x2] := sin(pi*x2)*sin(pi*x2)/(pi*x2*pi*x2);
+let f[0,0] := 1;
+let {(xi1,xi2) in C: (xi1, xi2) in K} fh[xi1,xi2] := (K_s - xi1)*(K_s - xi2) ;
+
+/* initialized variables by Bob’s conjecture */
+#let {(xi1,xi2) in C: xi1 <= K_s && xi2 <= K_s} fh[xi1,xi2] := (K_s - xi1)*(K_s - xi2) ;
+
+#let {(x1,xi2) in C1B1} g11[x1,xi2] := 2*sum {xi1 in Xis} 			  fh[xi1,xi2]*cos(2*pi*x1*xi1) *dxi 
+#			             - sum{xi1 in Xis: xi1 = C_s || xi1 = 0}   fh[xi1,xi2]*cos(2*pi*x1*xi1) *dxi;
+
+#let {(x1,x2) in B}       f[x1,x2]  := 2*sum {xi2 in Xis}  			  g11[x1, xi2]*cos(2*pi*x2*xi2)*dxi 
+#			   	       - sum{xi2 in Xis: xi2 = C_s || xi2 = 0} g11[x1, xi2]*cos(2*pi*x2*xi2)*dxi;
+
+
+
+option loqo_options "verbose=2 timing=1 bndpush = 0.01 steplen=0.99";
+#option loqo_options "verbose=2 timing=1";
+solve;display delta2 * K_vol / 4;
+
+for {x1 in Xs} {
+	printf {x2 in Xs}: "%8.5f ", f[x1,x2] > f2D.txt;
+	printf "\n" > f2D.txt;
+
+        printf {x2 in Xs}: "%8.5f ", x2 > x2D.txt;
+	printf "\n" > x2D.txt;
+}
+
+for {xi1 in Xis} {
+	printf {xi2 in Xis}: "%8.5f ", fh[xi1,xi2] > fh2D.txt;
+	printf "\n" > fh2D.txt;
+
+       printf {xi2 in Xis}: "%8.5f ", xi2 > xi2D.txt;
+	printf "\n" > xi2D.txt;
+}
+

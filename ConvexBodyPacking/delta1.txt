@@ -1,0 +1,100 @@
+param pi := 4*atan(1);
+
+param N := 1;		/* Geometrical dimension */
+
+param C_s := 5; 	/* size of the truncated frequency space in positive orthant*/
+
+param m := 10;		/* number of pixels in frequency space in positive orthant*/
+
+param B_s := m/(2*C_s); /* size of the truncated time space in positive orthant*/
+
+param K_s  := 1;	/* size of the convex body in positive orthant*/	
+
+param n := 2*m;  		/* C_s >= 1 otherwise sampling in time domain will be on integers */
+
+param dx   := B_s/n;	
+param dxi  := C_s/m;
+
+set Xs  = setof {i in 0..n} i*dx;
+set Xis = setof {i in 0..m} i*dxi;
+
+set B = setof {x in Xs} x; /* truncated time space */
+set B_extrm_at_least_1 = setof {x in B: x= 0 || x = B_s} x;
+
+set C = setof {xi in Xis} xi;
+
+param lb {x in B} := if x =  0 then 1 else 0;
+
+var fh{C};
+var f {x in B} >= lb[x];
+
+
+minimize delta1: 2*sum{x in B} f[x] * dx - f[0] * dx;
+
+#subject to f_zero_geq_one: 
+#		f[0] >= 1;
+
+#subject to f_positive {x in B}: 
+#		f[x] >= 0;
+
+subject to out_of_K_non_pos {xi in Xis: xi > K_s}: 
+		fh[xi] <= 0;
+
+subject to f_def{x in B}: 	
+		f[x] = 2*sum{xi in C} 			   fh[xi] * cos(2*pi*x*xi) * dxi 
+			-sum{xi in C: xi = C_s || xi = 0}  fh[xi] * cos(2*pi*x*xi) * dxi;
+
+/* extra valid constraints */
+subject to fh_zero_on_k_boundary:
+		fh[K_s] = 0;
+
+/* initialized variables by Turan’s conjecture */
+let {xi in C: xi <= K_s} fh[xi] := K_s - xi ;
+
+let {xi in C: xi > K_s} fh[xi] := 0 ;
+
+let {x in B: x != 0} f[x] := sin(pi*x)*sin(pi*x)/(pi*x*pi*x);   
+                        /* initialized by Turan’s conjecture */
+/*
+let f[0] := 1;
+let {x in B: x != 0} 
+		f[x] := 2*sum{xi in C} 		      fh[xi] * cos(2*pi*x*xi) * dxi 
+		 	 -sum{xi in C: xi = C_s || xi = 0}  fh[xi] * cos(2*pi*x*xi) * dxi;
+*/
+                        /* Bob's conjecture */
+
+let {x in B} f_def[x] := 0.1;
+
+
+for {x in Xs} {
+	printf: "%8.5f ", f[x] > f_init.txt;
+	printf "\n" > f_init.txt;
+}
+for {xi in Xis} {
+	printf: "%8.5f ", fh[xi] > fh_init.txt;
+	printf "\n" > fh_init.txt;
+}
+
+#option loqo_options "verbose=2 timing=1 epsdiag=1.0e-6 sigfig=5 bndpush=0.0010";
+option loqo_options "verbose=2 bndpush=0.1 steplen=0.999";
+#option presolve 0;
+
+
+#display f_def, f_def.body, f_def.lb, f_def.ub, f_def.slack;
+solve;
+
+
+for {xi in Xis} {
+	printf: "%8.5f ", fh[xi] > fh.txt;
+	printf "\n" > fh.txt;
+	printf: "%8.5f ", xi > xi.txt;
+	printf "\n" > xi.txt;
+}
+
+for {x in Xs} {
+	printf: "%8.5f ", f[x] > f.txt;
+	printf "\n" > f.txt;
+	printf: "%8.5f ", x > x.txt;
+	printf "\n" > x.txt;
+}
+

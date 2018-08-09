@@ -1,0 +1,139 @@
+param pi := 4*atan(1);
+
+param K_s := 1;
+param m := 12;
+
+param B_s := 1*m/2;
+param n := 2 * B_s;
+param dx := B_s/n;
+param dxi  := K_s/m;
+
+param x_pix  := dx*dx*dx*dx;
+param xi_pix := dxi*dxi*dxi*dxi;
+set Xs  := setof {k in 0..n} k*dx;
+set Xis := setof {j in 0..m} j*dxi;
+set K_box := setof {xi1 in Xis, xi2 in Xis, xi3 in Xis, xi4 in Xis} (xi1,xi2,xi3,xi4); /* smallest box that contains K body */
+set B := setof {x1 in Xs, x2 in Xs, x3 in Xs, x4 in Xs} (x1,x2,x3,x4);
+
+set B_boundary    := setof {(x1,x2,x3,x4) in B: x1 = n*dx || x2 = n*dx || x3 = n*dx || x4 = n*dx} (x1,x2,x3,x4);  /* B is a box */
+set B_on_2_bdry   := setof {(x1,x2,x3,x4) in B: (x1 = n*dx && x2 = n*dx) || (x1 = n*dx && x3 = n*dx) || (x1 = n*dx && x4 = n*dx) || (x2 = n*dx && x3 = n*dx) || (x2 = n*dx && x4 = n*dx) || (x3 = n*dx && x4 = n*dx)}(x1,x2,x3,x4);
+set B_on_3_bdry   := setof {(x1,x2,x3,x4) in B: (x1 = n*dx && x2 = n*dx && x3 = n*dx) || (x1 = n*dx && x2 = n*dx && x4 = n*dx) || (x1 = n*dx && x3 = n*dx && x4 = n*dx) || (x2 = n*dx && x3 = n*dx && x4 = n*dx)}(x1,x2,x3,x4);
+set B_on_axes     := setof {(x1,x2,x3,x4) in B: x1 = 0 || x2 = 0 || x3 = 0 || x4 = 0}(x1,x2,x3,x4);
+set B_on_2_axes   := setof {(x1,x2,x3,x4) in B: (x1 = 0 && x2 = 0) || (x1 = 0 && x3 = 0) || (x1 = 0 && x4 = 0) || (x2 = 0 && x3 = 0) || (x2 = 0 && x4 = 0) || (x3 = 0 && x4 = 0)}(x1,x2,x3,x4);
+set B_on_3_axes   := setof {(x1,x2,x3,x4) in B: (x1 = 0 && x2 = 0 && x3 = 0) || (x1 = 0 && x2 = 0 && x4 = 0) || (x1 = 0 && x3 = 0 && x4 = 0) || (x2 = 0 && x3 = 0 && x4 = 0)}(x1,x2,x3,x4);
+set B_corners     := setof {(x1,x2,x3,x4) in B: (x1 = 0 && x2 = 0 && x3 = 0 && x4 = 0) || 
+						   (x1 = 0 && x2 = 0 && x3 = 0 && x4 = n*dx) ||
+						   (x1 = 0 && x2 = 0 && x3 = n*dx && x4 = 0) ||
+						   (x1 = 0 && x2 = n*dx && x3 = 0 && x4 = 0) ||
+						   (x1 = n*dx && x2 = 0 && x3 = 0 && x4 = 0) ||
+						   (x1 = 0 && x2 = 0 && x3 = n*dx && x4 = n*dx) ||
+						   (x1 = 0 && x2 = n*dx && x3 = 0 && x4 = n*dx) ||
+						   (x1 = n*dx && x2 = 0 && x3 = 0 && x4 = n*dx) ||
+						   (x1 = 0 && x2 = n*dx && x3 = n*dx && x4 = 0) ||
+						   (x1 = n*dx && x2 = 0 && x3 = n*dx && x4 = 0) ||
+						   (x1 = n*dx && x2 = n*dx && x3 = 0 && x4 = 0) ||
+						   (x1 = 0 && x2 = n*dx && x3 = n*dx && x4 = n*dx) ||
+						   (x1 = n*dx && x2 = 0 && x3 = n*dx && x4 = n*dx) ||
+						   (x1 = n*dx && x2 = n*dx && x3 = 0 && x4 = n*dx) ||
+						   (x1 = n*dx && x2 = n*dx && x3 = n*dx && x4 = 0) ||
+						   (x1 = n*dx && x2 = n*dx && x3 = n*dx && x4 = n*dx)}(x1,x2,x3,x4);
+
+
+/* when K is l_infty */
+#set K_boundary    := setof {(xi1,xi2,xi3,xi4) in K_box: xi1 = m*dxi || xi2 = m*dxi || xi3 = m*dxi || xi4 = m*dxi} (xi1,xi2,xi3,xi4);
+#set K_body        := setof {xi1 in Xis, xi2 in Xis, xi3 in Xis, xi4 in Xis} (xi1,xi2,xi3,xi4); 
+
+
+/* when K is l1 */ 
+#set K_boundary := setof {(xi1,xi2,xi3,xi4) in K_box: xi1 + xi2 + xi3 + xi4 = m*dxi} #(xi1,xi2,xi3,xi4); 
+#set K_body := setof {xi1 in Xis, xi2 in Xis, xi3 in Xis, xi4 in Xis: xi1+xi2+xi3+xi4 <= #K_s} (xi1,xi2,xi3,xi4);
+
+/* when K is l2 */ 
+#set K_boundary := setof {(xi1,xi2,xi3,xi4) in K_box: xi1*xi1 + xi2*xi2 + xi3*xi3 + xi4*xi4 = K_s*K_s} (xi1,xi2,xi3,xi4); 
+#set K_body := setof {xi1 in Xis, xi2 in Xis, xi3 in Xis, xi4 in Xis: xi1*xi1 + xi2*xi2 + xi3*xi3 + xi4*xi4  <= K_s*K_s} (xi1,xi2,xi3,xi4);
+
+/* when K is l4 */ 
+set K_boundary := setof {(xi1,xi2,xi3,xi4) in K_box: xi1*xi1*xi1*xi1 + xi2*xi2*xi2*xi2 + xi3*xi3*xi3*xi3 + xi4*xi4*xi4*xi4 = K_s*K_s*K_s*K_s} (xi1,xi2,xi3,xi4); 
+set K_body := setof {xi1 in Xis, xi2 in Xis, xi3 in Xis, xi4 in Xis: xi1*xi1*xi1*xi1 + xi2*xi2*xi2*xi2 + xi3*xi3*xi3*xi3 + xi4*xi4*xi4*xi4 <= K_s*K_s*K_s*K_s} (xi1,xi2,xi3,xi4);
+
+var f {B} >= 0;
+var i {x1 in Xs, x2  in Xs,  x3  in Xs,  xi4 in Xis}; 
+var h {x1 in Xs, x2  in Xs,  xi3 in Xis, xi4 in Xis};
+var g {x1 in Xs, xi2 in Xis, xi3 in Xis, xi4 in Xis};
+var fhat {K_box};
+
+minimize gamma4:
+
+           	 16 * sum {(x1, x2, x3, x4) in B}                             f[x1,x2,x3,x4] * x_pix
+	    	- 8 * sum {(x1, x2, x3, x4) in B_boundary union B_on_axes}    f[x1,x2,x3,x4] * x_pix
+	    	- 4 * sum {(x1, x2, x3, x4) in B_on_2_bdry union B_on_2_axes} f[x1,x2,x3,x4] * x_pix
+		- 2 * sum {(x1, x2, x3, x4) in B_on_3_bdry union B_on_3_axes} f[x1,x2,x3,x4] * x_pix
+	    	- 1 * sum {(x1, x2, x3, x4) in B_corners}                     f[x1,x2,x3,x4] * x_pix;
+
+subject to f_zero: 
+	
+		f[0,0,0,0] >= 1;
+
+subject to fhat_boundry_zero {(xi1,xi2,xi3,xi4) in K_boundary}:
+
+		fhat[xi1,xi2,xi3,xi4] = 0;
+
+subject to g_def {x1 in Xs, xi2 in Xis, xi3 in Xis, xi4 in Xis}:
+		g[x1, xi2, xi3, xi4] = 2*sum {xi1 in Xis} fhat[xi1,   xi2, xi3, xi4]*cos(2*pi*x1*xi1)  *dxi 
+		                       -                  fhat[0,     xi2, xi3, xi4]                   *dxi 
+				        -                  fhat[m*dxi, xi2, xi3, xi4]*cos(2*pi*x1*m*dxi)*dxi;
+
+	
+subject to h_def {x1 in Xs, x2 in Xs, xi3 in Xis, xi4 in Xis}:
+		h[x1,  x2, xi3, xi4] = 2*sum {xi2 in Xis} g[x1, xi2,   xi3, xi4]*cos(2*pi*x2*xi2)  *dxi 
+		                       -                  g[x1, 0,     xi3, xi4]                   *dxi 
+		 		        -                  g[x1, m*dxi, xi3, xi4]*cos(2*pi*x2*m*dxi)*dxi; 	
+
+subject to i_def {x1 in Xs, x2 in Xs, x3 in Xs, xi4 in Xis}:
+		i[x1,  x2, x3, xi4] = 2*sum {xi3 in Xis}  h[x1, x2, xi3,   xi4]*cos(2*pi*x3*xi3)  *dxi 
+		                       -                  h[x1, x2, 0,     xi4]                   *dxi 
+		 		        -                  h[x1, x2, m*dxi, xi4]*cos(2*pi*x3*m*dxi)*dxi; 		
+
+subject to f_def {(x1,x2,x3,x4) in B}:
+           	f[x1,  x2,  x3,  x4] = 2*sum {xi4 in Xis} i[x1, x2, x3, xi4  ]*cos(2*pi*x4*xi4)  *dxi 
+		                       -                  i[x1, x2, x3, 0    ]                   *dxi 
+				        -                  i[x1, x2, x3, m*dxi]*cos(2*pi*x4*m*dxi)*dxi;
+
+subject to out_of_K_zero {xi1 in Xis, xi2 in Xis, xi3 in Xis, xi4 in Xis: (xi1,xi2,xi3,xi4) not in K_body}: fhat[xi1,xi2,xi3,xi4] = 0; 
+
+
+#subject to fhat_zero_nonneg: fhat[0,0,0,0] >= 0;
+
+#subject to envelope {(x1,x2,x3,x4) in B: x1+x2+x3+x4 <= 1}:
+#	    f[x1,x2,x3,x4] >= 1 + (1+2*pi*(x1+x2+x3+x4)- exp(2*pi*(x1+x2+x3+x4)));
+
+option loqo_options "verbose=2 timing=1 epsdiag=1.0e-6 sigfig=5";
+solve;
+
+
+for {(xi1,xi2,xi3,xi4) in K_body} {
+	printf: "%8.5f ", xi1  > xi_fhat4D.txt;
+
+	printf: "%8.5f ", xi2 > xi_fhat4D.txt;
+
+	printf: "%8.5f ", xi3 > xi_fhat4D.txt;
+
+	printf: "%8.5f ", xi4 > xi_fhat4D.txt;
+
+	printf: "%8.5f ", fhat[xi1,xi2,xi3,xi4] > xi_fhat4D.txt;
+	printf "\n" >  xi_fhat4D.txt;
+
+
+for {(x1,x2,x3,x4) in B} {
+	printf: "%8.5f ", x1  > x_f4D.txt;
+
+	printf: "%8.5f ", x2 > x_f4D.txt;
+
+	printf: "%8.5f ", x3 > x_f4D.txt;
+
+	printf: "%8.5f ", x4 > x_f4D.txt;
+
+	printf: "%8.5f ", f[x1,x2,x3,x4] > x_f4D.txt;
+	printf "\n" >  x_f4D.txt;
+}
+

@@ -1,0 +1,1 @@
+Ample models of numerical approximations for infinite dimensional LP’s that involve Fourier Transform of the variables.

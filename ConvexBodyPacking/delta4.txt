@@ -1,0 +1,141 @@
+param pi := 4*atan(1);
+
+
+param N := 3;		/* Geometrical dimension */
+
+param C_s := 2; 	/* size of the truncated frequency space in positive orthant*/
+
+param m := 12;		/* number of pixels in frequency space in positive orthant*/
+
+param B_s := m/(2*C_s);/* size of the truncated time space in positive orthant*/
+
+param K_s  := 1;	/* size of the convex body in positive orthant*/	
+
+param n := 2*m;  		/* C_s >= 1 otherwise sampling in time domain will be on integers */
+
+param dx   := B_s/n;	
+param dxi  := C_s/m;
+
+param x_pix  := dx*dx*dx;
+param xi_pix := dxi*dxi*dxi;
+
+set Xs  := setof {k in 0..n} k*dx;
+set Xis := setof {j in 0..m} j*dxi;
+
+set B                  := setof {x1 in Xs, x2 in Xs, x3 in Xs} (x1,x2,x3);	/* truncated time space */
+set B_extrm_at_least_1 := setof {(x1,x2,x3) in B: min(x1,x2,x3) = 0 ||  max(x1,x2,x2) = B_s} (x1,x2,x3);
+set B_extrm_at_least_2 := setof {(x1,x2,x3) in B: min(x1+x2,x1+x3,x2+x3) = 0 || max(x1+x2,x1+x3,x2+x3) = 2*B_s || (min(x1,x2,x3) = 0 && max(x1,x2,x2) = B_s)} (x1,x2,x3);
+set B_extrm_at_least_3 := setof {(x1,x2,x3) in B: x1+x2+x3 = 0 || x1+x2+x3 = 3*B_s || (min(x1+x2,x1+x3,x2+x3) = 0 && max(x1,x2,x2) = B_s) || (max(x1+x2,x1+x3,x2+x3) = 2*B_s && min(x1,x2,x3) = 0)} (x1,x2,x3);
+
+set C 			:= setof {xi1 in Xis, xi2 in Xis, xi3 in Xis} (xi1,xi2,xi3); /* truncated frequency space */
+
+set C2B1:= setof {x1 in Xs, xi2 in Xis, xi3 in Xis} (x1,xi2, xi3); /* intermediate space, for fast fourier transform variable */
+set C1B2:= setof {x1 in Xs, x2 in Xs, xi3 in Xis} (x1,x2, xi3);
+
+
+/* K is l infinity ball */
+#set K           := setof {(xi1,xi2,xi3) in C: max(xi1,xi2,xi3) <= K_s} (xi1,xi2,xi3);  
+#set K_boundary  := setof {(xi1,xi2,xi3) in C: max(xi1,xi2,xi3)  = K_s} (xi1,xi2,xi3); 
+#param K_vol     := 2*K_s*2*K_s*2*K_s;
+
+
+/* K is l1 ball */
+set K 		:= setof {(xi1,xi2,xi3) in C: xi1+xi2+xi3 <= K_s} (xi1,xi2,xi3); 
+set K_boundary := setof {(xi1,xi2,xi3) in C: xi1+xi2+xi3  = K_s} (xi1,xi2,xi3);
+param K_vol    := 8/6 *K_s*K_s*K_s;
+
+/* K is l2 ball */ 
+#set K 	        := setof {(xi1,xi2,xi3) in C: xi1*xi1 + xi2*xi2 + xi3*xi3 <= K_s*K_s} (xi1,xi2,xi3);
+#set K_boundary := setof {(xi1,xi2,xi3) in C: xi1*xi1 + xi2*xi2 + xi3*xi3  = K_s*K_s} (xi1,xi2,xi3);  
+#param K_vol    := 4*pi/3*K_s*K_s*K_s;  
+
+/* K is l3 ball */
+#set K          := setof {(xi1,xi2,xi3) in C: xi1*xi1*xi1 + xi2*xi2*xi2 + xi3*xi3*xi3 <= K_s*K_s*K_s} (xi1,xi2,xi3);
+#set K_boundary := setof {(xi1,xi2,xi3) in C: xi1*xi1*xi1 + xi2*xi2*xi2 + xi3*xi3*xi3  = K_s*K_s*K_s} (xi1,xi2,xi3);   
+
+var f {B} >= 0;
+var g12 {C1B2};
+var g21 {C2B1};
+var fh {C};
+
+minimize delta3:
+
+           	  8 * sum {(x1,x2,x3) in B}                  f[x1,x2,x3]* x_pix
+	    	- 4 * sum {(x1,x2,x3) in B_extrm_at_least_1} f[x1,x2,x3]* x_pix
+	    	- 2 * sum {(x1,x2,x3) in B_extrm_at_least_2} f[x1,x2,x3]* x_pix
+	    	- 1 * sum {(x1,x2,x3) in B_extrm_at_least_3} f[x1,x2,x3]* x_pix;
+
+subject to f_zero: 
+		f[0,0,0] >= 1;
+
+subject to out_of_K_non_pos {(xi1,xi2,xi3) in C: (xi1,xi2,xi3) not in K}: 
+		fh[xi1,xi2,xi3] <= 0; 
+
+subject to g21_def {(x1,xi2,xi3) in C2B1}:
+		g21[x1,xi2,xi3] = 2*sum {xi1 in Xis}     		  fh[xi1,   xi2, xi3]*cos(2*pi*x1*xi1) *dxi 
+		                - sum {xi1 in Xis: xi1 = 0 || xi1 = C_s}  fh[xi1,   xi2, xi3]*cos(2*pi*x1*xi1) *dxi;
+
+	
+subject to g12_def {(x1,x2,xi3) in C1B2}:
+		g12[x1,x2,xi3] = 2*sum {xi2 in Xis} 			g21[x1, xi2, xi3]*cos(2*pi*x2*xi2) *dxi 
+		 	       - sum {xi2 in Xis: xi2 = 0 || xi2 = C_s} g21[x1, xi2, xi3]*cos(2*pi*x2*xi2) *dxi; 		
+
+subject to f_def {(x1,x2,x3) in B}:
+           	f[x1,x2,x3] = 2*sum {xi3 in Xis}  			g12[x1, x2, xi3]*cos(2*pi*x3*xi3) *dxi 
+		             - sum {xi3 in Xis: xi3 = 0 || xi3 = C_s}   g12[x1, x2, xi3]*cos(2*pi*x3*xi3) *dxi;
+
+
+/* extra valid constraints */
+subject to fh_zero_on_k_boundary {(xi1,xi2,xi3) in K_boundary}:
+	       	fh[xi1,xi2,xi3] = 0;
+
+#subject to envelope {(x1,x2) in B: x1+x2 <= 1}
+#	    f[x1,x2,x3] >= 1 + (1+2*pi*(x1+x2)- exp(2*pi*(x1+x2)));
+
+
+/* initialized variables by Turan’s conjecture */
+#let {(x1,x2,x3) in B: x1 != 0 && x2 != 0 && x3 != 0} f[x1,x2,x3] := sin(pi*x1)*sin(pi*x1)/(pi*x1*pi*x1) * sin(pi*x2)*sin(pi*x2)/(pi*x2*pi*x2)* sin(pi*x3)*sin(pi*x3)/(pi*x3*pi*x3);   
+#let {(x1,x2,x3) in B: x1 != 0 && x2 != 0 && x3  = 0}  f[x1,x2,x3] := sin(pi*x1)*sin(pi*x1)/(pi*x1*pi*x1)*sin(pi*x2)*sin(pi*x2)/(pi*x2*pi*x2);
+#let {(x1,x2,x3) in B: x1 != 0 && x2  = 0 && x3 != 0}  f[x1,x2,x3] := sin(pi*x1)*sin(pi*x1)/(pi*x1*pi*x1)*sin(pi*x3)*sin(pi*x3)/(pi*x3*pi*x3);
+#let {(x1,x2,x3) in B: x1  = 0 && x2 != 0 && x3 != 0}  f[x1,x2,x3] := sin(pi*x3)*sin(pi*x3)/(pi*x3*pi*x3)*sin(pi*x2)*sin(pi*x2)/(pi*x1*pi*x2);
+#let f[0,0,0] := 1;
+#let {(xi1,xi2,xi3) in C: xi1 <= K_s && xi2 <= K_s && xi3 <= K_s} fh[xi1,xi2,xi3] := (K_s - xi1)*(K_s - xi2)*(K_s - xi3);
+
+/* initialized variables by Bob’s conjecture */
+let {(xi1,xi2,xi3) in C: xi1 <= K_s && xi2 <= K_s && xi3 <= K_s} fh[xi1,xi2,xi3] := (K_s - xi1)*(K_s - xi2)*(K_s - xi3);
+let {(x1,xi2,xi3)  in C2B1} g21[x1,xi2,xi3] := 2*sum {xi1 in Xis}     		        fh [xi1,   xi2, xi3]*cos(2*pi*x1*xi1) *dxi 
+		                               - sum {xi1 in Xis: xi1 = 0 || xi1 = C_s} fh [xi1,   xi2, xi3]*cos(2*pi*x1*xi1) *dxi;
+let {(x1,x2,xi3)   in C1B2} g12[x1,x2,xi3]  := 2*sum {xi2 in Xis} 			g21[x1, xi2, xi3]*cos(2*pi*x2*xi2) *dxi 
+		 	                       - sum {xi2 in Xis: xi2 = 0 || xi2 = C_s} g21[x1, xi2, xi3]*cos(2*pi*x2*xi2) *dxi;
+let {(x1,x2,x3) in B}       f[x1,x2,x3]     := 2*sum {xi3 in Xis}  			g12[x1, x2, xi3]*cos(2*pi*x3*xi3) *dxi 
+		             		       - sum {xi3 in Xis: xi3 = 0 || xi3 = C_s} g12[x1, x2, xi3]*cos(2*pi*x3*xi3) *dxi;
+
+
+option loqo_options "verbose=2 timing=1 epsdiag=1.0e-6 sigfig=5";
+solve;
+
+display delta3 * K_vol / 8;
+
+
+for {(xi1,xi2,xi3) in C} {
+	printf: "%8.5f ", xi1  > xi_fh3D.txt;
+
+	printf: "%8.5f ", xi2 > xi_fh3D.txt;
+
+	printf: "%8.5f ", xi3 > xi_fh3D.txt;
+
+	printf: "%8.5f ", fh[xi1,xi2,xi3] > xi_fh3D.txt;
+	printf "\n" >  xi_fh3D.txt;
+}
+
+for {(x1,x2,x3) in B} {
+	printf: "%8.5f ", x1  > x_f3D.txt;
+
+	printf: "%8.5f ", x2 > x_f3D.txt;
+
+	printf: "%8.5f ", x3 > x_f3D.txt;
+
+	printf: "%8.5f ", f[x1,x2,x3] > x_f3D.txt;
+	printf "\n" >  x_f3D.txt;
+}
+

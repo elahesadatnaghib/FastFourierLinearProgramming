@@ -1,0 +1,108 @@
+param pi := 4*atan(1);
+
+param K_s := 1;
+param m := 10;
+
+param B_s := 1*m/2;
+param n := 2 * B_s;
+param dx := B_s/n;
+param dxi  := K_s/m;
+
+param x_pix  := dx*dx*dx;
+param xi_pix := dxi*dxi*dxi;
+set Xs  := setof {k in 0..n} k*dx;
+set Xis := setof {j in 0..m} j*dxi;
+set K_box := setof {xi1 in Xis, xi2 in Xis, xi3 in Xis} (xi1,xi2,xi3); /* smallest box that contains K body */
+set B := setof {x1 in Xs, x2 in Xs, x3 in Xs} (x1,x2,x3);
+
+set B_boundary    := setof {(x1,x2,x3) in B: x1 = n*dx || x2 = n*dx || x3 = n*dx} (x1,x2,x3);  /* B is a box */
+set B_corner_bdry := setof {(x1,x2,x3) in B: (x1 = n*dx && x2 = n*dx) || (x1 = n*dx && x3 = n*dx) || (x2 = n*dx && x3 = n*dx)} (x1,x2,x3);
+set B_on_axes     := setof {(x1,x2,x3) in B: x1 = 0 || x2 = 0 || x3 = 0}(x1,x2,x3);
+set B_on_two_axes := setof {(x1,x2,x3) in B: (x1 = 0 && x2 = 0) || (x1 = 0 && x3 = 0) || (x2 = 0 && x3 = 0)}(x1,x2,x3);
+
+set K_on_axis     := setof {(xi1,xi2, xi3) in K_box: xi1 =0 || xi2 =0 || xi3 =0}(xi1,xi2,xi3);
+set K_on_two_axis := setof {(xi1,xi2, xi3) in K_box: (xi1 =0 && xi2 =0) || (xi1 =0 && xi3 =0) || (xi2 =0 && xi3 =0) }(xi1,xi2,xi3);
+
+
+/* when K is a box */
+#set K_boundary    := setof {(xi1,xi2,xi3) in K_box: xi1 = m*dxi || xi2 = m*dxi|| xi3 = m*dxi} (xi1,xi2,xi3); 
+#set K_corner_bdry := setof {(xi1,xi2,xi3) in K_box: (xi1 = m*dxi && xi2 = m*dxi)|| (xi1 = m*dxi && xi3 = m*dxi) || (xi2 = m*dxi && xi3 = m*dxi)} (xi1,xi2,xi3);
+#set K_body        := setof {xi1 in Xis, xi2 in Xis, xi3 in Xis} (xi1,xi2,xi3); 
+
+
+/* when K is a diamond */ 
+set K_boundary := setof {(xi1,xi2,xi3) in K_box: xi1 + xi2 + xi3 = m*dxi} (xi1,xi2,xi3); 
+set K_corner_bdry := setof {(xi1,xi2,xi3) in K_box: (xi1 + xi2 = m*dxi)|| (xi1 + xi3 = m*dxi) || (xi2 + xi3 = m*dxi)} (xi1,xi2,xi3);
+set K_body := setof {xi1 in Xis, xi2 in Xis, xi3 in Xis: xi1+xi2+xi3 <= K_s} (xi1,xi2,xi3);
+
+
+var f {B} >= 0;
+var fhat {K_box};
+
+minimize gamma3:
+
+fhat[0,0,0];
+
+#subject to fhat_zero_def:
+#
+#		fhat[0,0,0] = 8*sum {(x1, x2, x3) in B} f[x1,x2,x3]* x_pix
+#				- 4 * sum {(x1,x2,x3) in B_boundary union B_on_axes} f[x1,x2,x3]* x_pix
+#				- 2 * sum {(x1,x2,x3) in B_corner_bdry union B_on_two_axes} f[x1,x2,x3]* x_pix
+#				- f[0,0,0]* x_pix;
+
+subject to f_zero: 
+	
+		f[0,0,0] >= 1;
+
+subject to fhat_boundry_zero {(xi1,xi2,xi3) in K_boundary}:
+
+		fhat[xi1,xi2,xi3] = 0;
+
+subject to f_def {(x1,x2,x3) in B}:
+           	f[x1,x2,x3]  =    8 * sum {(xi1, xi2, xi3) in K_body}                            fhat[xi1, xi2, xi3]*cos(2*pi*x1*xi1)*cos(2*pi*x2*xi2)*cos(2*pi*x3*xi3)*xi_pix
+#		;
+			 	- 4 * sum {(xi1, xi2, xi3) in K_boundary union K_on_axis}        fhat[xi1, xi2, xi3]*cos(2*pi*x1*xi1)*cos(2*pi*x2*xi2)*cos(2*pi*x3*xi3)*xi_pix
+				- 2 * sum {(xi1, xi2, xi3) in K_corner_bdry union K_on_two_axis} fhat[xi1, xi2, xi3]*cos(2*pi*x1*xi1)*cos(2*pi*x2*xi2)*cos(2*pi*x3*xi3)*xi_pix
+				- (fhat[0,0,0]
+				  +fhat[0,0,m*dxi]*cos(2*pi*x3*m*dxi)
+				  +fhat[0,m*dxi,0]*cos(2*pi*x2*m*dxi)
+				  +fhat[m*dxi,0,0]*cos(2*pi*x1*m*dxi)
+				  +fhat[0,m*dxi,m*dxi]*cos(2*pi*x2*m*dxi)*cos(2*pi*x3*m*dxi)
+				  +fhat[m*dxi,0,m*dxi]*cos(2*pi*x1*m*dxi)*cos(2*pi*x3*m*dxi)
+				  +fhat[m*dxi,m*dxi,0]*cos(2*pi*x1*m*dxi)*cos(2*pi*x2*m*dxi)
+				  +fhat[m*dxi,m*dxi,m*dxi]*cos(2*pi*x1*m*dxi)*cos(2*pi*x2*m*dxi)*cos(2*pi*x3*m*dxi)
+				  )
+						* xi_pix;
+				
+subject to out_of_K_zero {xi1 in Xis, xi2 in Xis, xi3 in Xis: (xi1,xi2,xi3) not in K_body}: fhat[xi1,xi2,xi3] = 0; 
+
+subject to fhat_zero_nonneg: fhat[0,0,0] >= 0;
+
+
+#subject to envelope {(x1,x2) in B: x1+x2 <= 1}
+#	    f[x1,x2,x3] >= 1 + (1+2*pi*(x1+x2)- exp(2*pi*(x1+x2)));;
+option loqo_options "verbose=2 timing=1 epsdiag=1.0e-6 sigfig=5";
+solve;
+
+for {(xi1,xi2,xi3) in K_body} {
+	printf: "%8.5f ", xi1  > xi_fhat3D.txt;
+
+	printf: "%8.5f ", xi2 > xi_fhat3D.txt;
+
+	printf: "%8.5f ", xi3 > xi_fhat3D.txt;
+
+	printf: "%8.5f ", fhat[xi1,xi2,xi3] > xi_fhat3D.txt;
+	printf "\n" >  xi_fhat3D.txt;
+
+
+for {(x1,x2,x3) in B} {
+	printf: "%8.5f ", x1  > x_f3D.txt;
+
+	printf: "%8.5f ", x2 > x_f3D.txt;
+
+	printf: "%8.5f ", x3 > x_f3D.txt;
+
+	printf: "%8.5f ", f[x1,x2,x3] > x_f3D.txt;
+	printf "\n" >  x_f3D.txt;
+}
+

@@ -1,0 +1,78 @@
+param pi := 4*atan(1);
+param K_scale := 1;
+param K_s := 1 * K_scale;
+param m := 40;
+
+param B_s := 1*m/(2 * K_scale);
+param n := m;
+param dx := B_s/n;
+param dxi  := K_s/m;
+
+param x_pix  := dx*dx;
+param xi_pix := dxi*dxi;set Xs  := setof {k in 0..n} k*dx;
+set Xis := setof {j in 0..m} j*dxi;
+set K_box := setof {xi1 in Xis, xi2 in Xis} (xi1,xi2); /* smallest box that contains K body */set B := setof {x1 in Xs, x2 in Xs} (x1,x2);
+
+
+set KB:= setof {x in Xs, xi in Xis} (x,xi);set B_boundary := setof {(x1,x2) in B: x1 = n*dx || x2 = n*dx} (x1,x2);  /* B is a box */
+set B_on_axes  := setof {(x1,x2) in B: x1 = 0 || x2 = 0}(x1,x2);
+set K_on_axis  := setof {(xi1,xi2) in K_box: xi1 =0 || xi2 =0}(xi1,xi2);
+
+/* K is l infinity ball */
+#set K_boundary := setof {(xi1,xi2) in K_box: xi1 = m*dxi || xi2 = m*dxi} (xi1,xi2);  
+#set K_body     := setof {xi1 in Xis, xi2 in Xis} (xi1,xi2);  
+
+/* K is l1 ball */
+set K_boundary := setof {(xi1,xi2) in K_box: xi1 + xi2  = K_s} (xi1,xi2);   
+set K_body     := setof {(xi1,xi2) in K_box: xi1 + xi2 <= K_s} (xi1,xi2);
+
+
+/* K is l3 ball */
+#set K_boundary := setof {(xi1,xi2) in K_box: xi1*xi1*xi1 + xi2*xi2*xi2 = K_s} (xi1,xi2);   
+#set K_body := setof {xi1 in Xis, xi2 in Xis: xi1*xi1*xi1 + xi2*xi2*xi2 <= K_s} (xi1,xi2);
+
+var f {B} >= 0;
+var g {Xs, Xis};
+var fhat {K_box};
+minimize gamma2: 
+
+		4*sum {(x1, x2) in B} f[x1,x2]* x_pix
+		- 2 * sum {(x1,x2) in B_boundary union B_on_axes} f[x1,x2]* x_pix
+		- f[0,0]* x_pix;
+
+
+subject to f_zero:  f[0,0] >= 1;
+subject to fhat_boundry_zero {(xi1,xi2) in K_boundary}: fhat[xi1,xi2] = 0;
+subject to g_def {(x1,xi2) in KB}:
+           g[x1,xi2] = 2*sum {xi1 in Xis} fhat[xi1,xi2]*cos(2*pi*x1*xi1) *dxi - sum{xi1 in Xis: xi1 = m*dxi || xi1 = 0} fhat[xi1,xi2]*cos(2*pi*x1*xi1) *dxi;
+subject to f_def {(x1,x2) in B}:
+           f[x1,x2]  = 2*sum {xi2 in Xis}  g[x1, xi2]*cos(2*pi*x2*xi2)*dxi - sum{xi2 in Xis: xi2 = m*dxi || xi2 = 0} g[x1, xi2]*cos(2*pi*x2*xi2)*dxi;subject to out_of_K_zero {xi1 in Xis, xi2 in Xis: (xi1,xi2) not in K_body}: fhat[xi1,xi2] = 0;  #subject to ub: 4*sum {(x1, x2) in B} f[x1,x2]* x_pix
+#		- 2 * sum {(x1,x2) in B_boundary union B_on_axes} f[x1,x2]* x_pix
+#		- f[0,0]* x_pix <= 100;   
+
+
+#subject to envelope {(x1,x2) in B: x1+x2 <= 1}:
+#	    f[x1,x2] >= 1 + (1+2*pi*(x1+x2)- exp(2*pi*(x1+x2)));
+
+
+option loqo_options "verbose=2 timing=1 epsdiag=1.0e-6 sigfig=5";
+solve;
+
+
+
+for {x1 in Xs} {
+	printf {x2 in Xs}: "%8.5f ", f[x1,x2] > f2D.txt;
+	printf "\n" > f2D.txt;
+
+       printf {x2 in Xs}: "%8.5f ", x2 > x2D.txt;
+	printf "\n" > x2D.txt;
+}
+
+for {xi1 in Xis} {
+	printf {xi2 in Xis}: "%8.5f ", fhat[xi1,xi2] > fh2D.txt;
+	printf "\n" > fh2D.txt;
+
+       printf {xi2 in Xis}: "%8.5f ", xi2 > xi2D.txt;
+	printf "\n" > xi2D.txt;
+}
+
